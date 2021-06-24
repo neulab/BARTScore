@@ -4,7 +4,7 @@
 This is the Repo for the paper: [BARTScore: Evaluating Generated Text as Text Generation]()
 
 ## Updates
-- 2021.6.22 Code will be released in one month.
+- 2021.6.22 Code will be released soon
 
 ## Background
 There is a recent trend that leverages neural models for automated evaluation in different ways, as shown in Fig.1.
