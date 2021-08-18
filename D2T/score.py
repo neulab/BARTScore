@@ -303,7 +303,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-"""
-python score.py --file BAGEL/data.pkl --device cuda:1 --output BAGEL/scores.pkl --bert_score --mover_score --bart_score --bart_score_cnn --bart_score_para --prism
-
-"""
