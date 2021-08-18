@@ -46,7 +46,7 @@ Our trained BARTScore (on ParaBank2) can be downloaded [here](https://drive.goog
 
 
 ### Reproduce
-To reproduce the results for each task, please see the README.md in each folder: `D2T` (data-to-text), `SUM` (summarization), `WMT` (machine translation). Once you get the scored pickle file in the right path (in each dataset folder), you can use them to conduct analysis.
+To reproduce the results for each task, please see the `README.md` in each folder: `D2T` (data-to-text), `SUM` (summarization), `WMT` (machine translation). Once you get the scored pickle file in the right path (in each dataset folder), you can use them to conduct analysis.
 
 For analysis, we provide `SUMStat`, `D2TStat` and `WMTStat` in `analysis.py` that can conveniently run analysis. An example of using `SUMStat` is shown below. Detailed usage can refer to `analysis.ipynb`.
 
