@@ -1,7 +1,7 @@
 <img src="./fig/bartscore.png" width="300" class="left"><img src="./fig/logo.png" width="400" class="center">
 
 
-This is the Repo for the paper: [BARTScore: Evaluating Generated Text as Text Generation]()
+This is the Repo for the paper: [BARTScore: Evaluating Generated Text as Text Generation](https://arxiv.org/abs/2106.11520)
 
 ## Updates
 - 2021.08.18 Release code
