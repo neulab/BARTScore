@@ -4,6 +4,7 @@
 This is the Repo for the paper: [BARTScore: Evaluating Generated Text as Text Generation](https://arxiv.org/abs/2106.11520)
 
 ## Updates
+- 2021.09.29 Paper gets accepted to NeurIPS 2021 `:tada:`
 - 2021.08.18 Release code
 - 2021.06.28 Release online evaluation [Demo](http://bartscore.sh/)
 - 2021.06.25 Release online Explainable Leaderboard for [Meta-evaluation](http://explainaboard.nlpedia.ai/leaderboard/task-meval/index.php)
