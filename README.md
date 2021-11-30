@@ -75,7 +75,10 @@ If you want to train your custom BARTScore with paired data, we provide the scri
 >>> bart_scorer.score(['This is interesting.'], ['This is fun.'])
 ```
 
+### Notes on use
+Since we are using the average log-likelihood for target tokens, the calculated scores will be smaller than 0 (the probability is between 0 and 1, so the log of it should be negative). The higher the log-likelihood, the higher the probability.
 
+To give an example, if SummaryA gets a score of -1 while SummaryB gets a score of -100, this means that the model thinks SummaryA is better than summaryB.
 ## Bib
 Please cite our work if you find it useful.
 ```
