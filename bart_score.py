@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import traceback
 from transformers import BartTokenizer, BartForConditionalGeneration
+from typing import List
+import numpy as np
 
 
 class BARTScorer:
@@ -73,6 +75,26 @@ class BARTScorer:
                 exit(0)
         return score_list
 
+    def multi_ref_score(self, srcs, tgts: List[List[str]], agg="mean", batch_size=4):
+        # Assert we have the same number of references
+        ref_nums = [len(x) for x in tgts]
+        if len(set(ref_nums)) > 1:
+            raise Exception("You have different number of references per test sample.")
+
+        ref_num = len(tgts[0])
+        score_matrix = []
+        for i in range(ref_num):
+            curr_tgts = [x[i] for x in tgts]
+            scores = self.score(srcs, curr_tgts, batch_size)
+            score_matrix.append(scores)
+        if agg == "mean":
+            score_list = np.mean(score_matrix, axis=0)
+        elif agg == "max":
+            score_list = np.max(score_matrix, axis=0)
+        else:
+            raise NotImplementedError
+        return list(score_list)
+
     def test(self, batch_size=3):
         """ Test """
         src_list = [
@@ -88,3 +110,4 @@ class BARTScorer:
         ]
 
         print(self.score(src_list, tgt_list, batch_size))
+

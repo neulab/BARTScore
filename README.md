@@ -32,7 +32,7 @@ Our trained BARTScore (on ParaBank2) can be downloaded [here](https://drive.goog
 # To use the CNNDM version BARTScore
 >>> from bart_score import BARTScorer
 >>> bart_scorer = BARTScorer(device='cuda:0', checkpoint='facebook/bart-large-cnn')
->>> bart_scorer.score(['This is interesting.'], ['This is fun.']) # generation scores from the first list of texts to the second list of texts.
+>>> bart_scorer.score(['This is interesting.'], ['This is fun.'], batch_size=4) # generation scores from the first list of texts to the second list of texts.
 [out]
 [-2.510652780532837]
 
@@ -40,9 +40,20 @@ Our trained BARTScore (on ParaBank2) can be downloaded [here](https://drive.goog
 >>> from bart_score import BARTScorer
 >>> bart_scorer = BARTScorer(device='cuda:0', checkpoint='facebook/bart-large-cnn')
 >>> bart_scorer.load(path='bart.pth')
->>> bart_scorer.score(['This is interesting.'], ['This is fun.'])
+>>> bart_scorer.score(['This is interesting.'], ['This is fun.'], batch_size=4)
 [out]
 [-2.336203098297119]
+```
+
+We also provide multi-reference support. Please make sure you have the same number of references for each test sample. The usage is shown below.
+```python
+>>> from bart_score import BARTScorer
+>>> bart_scorer = BARTScorer(device='cuda:0', checkpoint='facebook/bart-large-cnn')
+>>> srcs = ["I'm super happy today.", "This is a good idea."]
+>>> tgts = [["I feel good today.", "I feel sad today."], ["Not bad.", "Sounds like a good idea."]] # List[List of references for each test sample]
+>>> bart_scorer.score(srcs, tgts, agg="max", batch_size=4) # agg means aggregation, can be mean or max
+[out]
+[-2.5008113384246826, -1.626236081123352]
 ```
 
 
@@ -74,6 +85,7 @@ If you want to train your custom BARTScore with paired data, we provide the scri
 >>> bart_scorer = BARTScorer(device='cuda:0', checkpoint='my_bartscore')
 >>> bart_scorer.score(['This is interesting.'], ['This is fun.'])
 ```
+
 
 ### Notes on use
 Since we are using the average log-likelihood for target tokens, the calculated scores will be smaller than 0 (the probability is between 0 and 1, so the log of it should be negative). The higher the log-likelihood, the higher the probability.
