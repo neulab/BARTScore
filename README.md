@@ -51,7 +51,7 @@ We also provide multi-reference support. Please make sure you have the same numb
 >>> bart_scorer = BARTScorer(device='cuda:0', checkpoint='facebook/bart-large-cnn')
 >>> srcs = ["I'm super happy today.", "This is a good idea."]
 >>> tgts = [["I feel good today.", "I feel sad today."], ["Not bad.", "Sounds like a good idea."]] # List[List of references for each test sample]
->>> bart_scorer.score(srcs, tgts, agg="max", batch_size=4) # agg means aggregation, can be mean or max
+>>> bart_scorer.multi_ref_score(srcs, tgts, agg="max", batch_size=4) # agg means aggregation, can be mean or max
 [out]
 [-2.5008113384246826, -1.626236081123352]
 ```
