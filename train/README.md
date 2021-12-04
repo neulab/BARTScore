@@ -3,7 +3,7 @@
 The code is modified based on [Huggingface example](https://github.com/huggingface/transformers/tree/master/examples/pytorch/summarization). You can also refer to their code for training.
 
 To train your custom BARTScore, please use the following format for training data file and validation data file.
-```json
+```
 # a train.json/val.json file contains multiple examples as shown below.
 {"text": "This is the first text.", "summary": "This is the first summary."}
 {"text": "This is the second text.", "summary": "This is the second summary."}
