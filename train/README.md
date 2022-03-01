@@ -17,5 +17,8 @@ python bart.py --train_file train.json --validation_file val.json --output_dir m
 
 Then you can use your custom BARTScore for evaluation.
 
+## Reproduce
+To reproduce our results, please see the folder [`reproduce`](reproduce). Due to limited computing resources, we sharded the BART into multiple GPUs and trained the model. See [`reproduce/finetune.py`](reproduce/finetune.py) for details.
+
 
 
