@@ -94,12 +94,15 @@ To give an example, if SummaryA gets a score of -1 while SummaryB gets a score o
 ## Bib
 Please cite our work if you find it useful.
 ```
-@misc{yuan2021bartscore,
-      title={BARTScore: Evaluating Generated Text as Text Generation}, 
-      author={Weizhe Yuan and Graham Neubig and Pengfei Liu},
-      year={2021},
-      eprint={2106.11520},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+@inproceedings{NEURIPS2021_e4d2b6e6,
+ author = {Yuan, Weizhe and Neubig, Graham and Liu, Pengfei},
+ booktitle = {Advances in Neural Information Processing Systems},
+ editor = {M. Ranzato and A. Beygelzimer and Y. Dauphin and P.S. Liang and J. Wortman Vaughan},
+ pages = {27263--27277},
+ publisher = {Curran Associates, Inc.},
+ title = {BARTScore: Evaluating Generated Text as Text Generation},
+ url = {https://proceedings.neurips.cc/paper/2021/file/e4d2b6e6fdeca3e60e0f1a62fee3d9dd-Paper.pdf},
+ volume = {34},
+ year = {2021}
 }
 ```
