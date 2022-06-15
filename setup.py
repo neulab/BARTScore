@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(
-    name="BARTScore",
+    name="bart_score",
     version="0.1.0",
     description="BARTScore: Evaluating Generated Text as Text Generation",
     author="Weizhe Yuan",
