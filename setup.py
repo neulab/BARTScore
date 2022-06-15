@@ -8,6 +8,7 @@ setup(
     description="BARTScore: Evaluating Generated Text as Text Generation",
     author="Weizhe Yuan",
     url="https://github.com/neulab/BARTScore",
+    packages=["bart_score"],
     install_requires=[
         "torch>=1.6.0",
         "transformers>=4.6.1",
