@@ -1,1 +1,1 @@
-from bart_score.bart_score import BARTScorer
+from bart_score.scorer import BARTScorer
