@@ -255,25 +255,33 @@ class Scorer:
                                 'rougel_f_hypo_ref': rougel_hypo_ref_scores[counter][2],
                             })
                         else:
+                            rouge1_hypo_ref_scores_mean = np.mean(rouge1_hypo_ref_scores, axis=0)
+                            rouge2_hypo_ref_scores_mean = np.mean(rouge2_hypo_ref_scores, axis=0)
+                            rougel_hypo_ref_scores_mean = np.mean(rougel_hypo_ref_scores, axis=0)
+
+                            rouge1_hypo_ref_scores_max = np.max(rouge1_hypo_ref_scores, axis=0)
+                            rouge2_hypo_ref_scores_max = np.max(rouge2_hypo_ref_scores, axis=0)
+                            rougel_hypo_ref_scores_max = np.max(rougel_hypo_ref_scores, axis=0)
+                            
                             self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
-                                'rouge1_r_hypo_ref_mean': np.mean(rouge1_hypo_ref_scores, axis=0)[counter][0],
-                                'rouge1_p_hypo_ref_mean': np.mean(rouge1_hypo_ref_scores, axis=0)[counter][1],
-                                'rouge1_f_hypo_ref_mean': np.mean(rouge1_hypo_ref_scores, axis=0)[counter][2],
-                                'rouge2_r_hypo_ref_mean': np.mean(rouge2_hypo_ref_scores, axis=0)[counter][0],
-                                'rouge2_p_hypo_ref_mean': np.mean(rouge2_hypo_ref_scores, axis=0)[counter][1],
-                                'rouge2_f_hypo_ref_mean': np.mean(rouge2_hypo_ref_scores, axis=0)[counter][2],
-                                'rougel_r_hypo_ref_mean': np.mean(rougel_hypo_ref_scores, axis=0)[counter][0],
-                                'rougel_p_hypo_ref_mean': np.mean(rougel_hypo_ref_scores, axis=0)[counter][1],
-                                'rougel_f_hypo_ref_mean': np.mean(rougel_hypo_ref_scores, axis=0)[counter][2],
-                                'rouge1_r_hypo_ref_max': np.max(rouge1_hypo_ref_scores, axis=0)[counter][0],
-                                'rouge1_p_hypo_ref_max': np.max(rouge1_hypo_ref_scores, axis=0)[counter][1],
-                                'rouge1_f_hypo_ref_max': np.max(rouge1_hypo_ref_scores, axis=0)[counter][2],
-                                'rouge2_r_hypo_ref_max': np.max(rouge2_hypo_ref_scores, axis=0)[counter][0],
-                                'rouge2_p_hypo_ref_max': np.max(rouge2_hypo_ref_scores, axis=0)[counter][1],
-                                'rouge2_f_hypo_ref_max': np.max(rouge2_hypo_ref_scores, axis=0)[counter][2],
-                                'rougel_r_hypo_ref_max': np.max(rougel_hypo_ref_scores, axis=0)[counter][0],
-                                'rougel_p_hypo_ref_max': np.max(rougel_hypo_ref_scores, axis=0)[counter][1],
-                                'rougel_f_hypo_ref_max': np.max(rougel_hypo_ref_scores, axis=0)[counter][2],
+                                'rouge1_r_hypo_ref_mean': rouge1_hypo_ref_scores_mean[counter][0],
+                                'rouge1_p_hypo_ref_mean': rouge1_hypo_ref_scores_mean[counter][1],
+                                'rouge1_f_hypo_ref_mean': rouge1_hypo_ref_scores_mean[counter][2],
+                                'rouge2_r_hypo_ref_mean': rouge2_hypo_ref_scores_mean[counter][0],
+                                'rouge2_p_hypo_ref_mean': rouge2_hypo_ref_scores_mean[counter][1],
+                                'rouge2_f_hypo_ref_mean': rouge2_hypo_ref_scores_mean[counter][2],
+                                'rougel_r_hypo_ref_mean': rougel_hypo_ref_scores_mean[counter][0],
+                                'rougel_p_hypo_ref_mean': rougel_hypo_ref_scores_mean[counter][1],
+                                'rougel_f_hypo_ref_mean': rougel_hypo_ref_scores_mean[counter][2],
+                                'rouge1_r_hypo_ref_max': rouge1_hypo_ref_scores_max[counter][0],
+                                'rouge1_p_hypo_ref_max': rouge1_hypo_ref_scores_max[counter][1],
+                                'rouge1_f_hypo_ref_max': rouge1_hypo_ref_scores_max[counter][2],
+                                'rouge2_r_hypo_ref_max': rouge2_hypo_ref_scores_max[counter][0],
+                                'rouge2_p_hypo_ref_max': rouge2_hypo_ref_scores_max[counter][1],
+                                'rouge2_f_hypo_ref_max': rouge2_hypo_ref_scores_max[counter][2],
+                                'rougel_r_hypo_ref_max': rougel_hypo_ref_scores_max[counter][0],
+                                'rougel_p_hypo_ref_max': rougel_hypo_ref_scores_max[counter][1],
+                                'rougel_f_hypo_ref_max': rougel_hypo_ref_scores_max[counter][2],
                             })
                         counter += 1
                 enablePrint()
