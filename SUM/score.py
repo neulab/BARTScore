@@ -77,27 +77,34 @@ class Scorer:
                 print(f'BERTScore setup finished. Begin calculating BERTScore.')
 
                 start = time.time()
+                # Keep capitalization, detokenize everything
+                src_lines = self.get_src_lines()
+                src_lines = [detokenize(line) for line in src_lines]
                 ref_lines = self.single_ref_lines if not self.multi_ref else self.multi_ref_lines
                 for sys_name in self.sys_names:
                     sys_lines = self.get_sys_lines(sys_name)
+                    P_src_hypo, R_src_hypo, F_src_hypo = bert_scorer.score(sys_lines, src_lines)
                     if not self.multi_ref:
-                        P, R, F = bert_scorer.score(sys_lines, ref_lines)
+                        P_hypo_ref, R_hypo_ref, F_hypo_ref = bert_scorer.score(sys_lines, ref_lines)
                     else:
                         total_num = len(sys_lines)
-                        P, R, F = np.zeros(total_num), np.zeros(total_num), np.zeros(total_num)
+                        P_hypo_ref, R_hypo_ref, F_hypo_ref = np.zeros(total_num), np.zeros(total_num), np.zeros(total_num)
                         for i in range(self.ref_num):
                             ref_list = [x[i] for x in ref_lines]
                             curr_P, curr_R, curr_F = bert_scorer.score(sys_lines, ref_list)
-                            P += curr_P.numpy()
-                            R += curr_R.numpy()
-                            F += curr_F.numpy()
-                        P, R, F = P / self.ref_num, R / self.ref_num, F / self.ref_num
+                            P_hypo_ref += curr_P.numpy()
+                            R_hypo_ref += curr_R.numpy()
+                            F_hypo_ref += curr_F.numpy()
+                        P_hypo_ref, R_hypo_ref, F_hypo_ref = P_hypo_ref / self.ref_num, R_hypo_ref / self.ref_num, F_hypo_ref / self.ref_num
                     counter = 0
                     for doc_id in self.data:
                         self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
-                            'bert_score_p': P[counter],
-                            'bert_score_r': R[counter],
-                            'bert_score_f': F[counter]
+                            'bert_score_p_hypo_ref': P_hypo_ref[counter],
+                            'bert_score_r_hypo_ref': R_hypo_ref[counter],
+                            'bert_score_f_hypo_ref': F_hypo_ref[counter],
+                            'bert_score_p_src_hypo': P_src_hypo[counter],
+                            'bert_score_r_src_hypo': R_src_hypo[counter],
+                            'bert_score_f_src_hypo': F_src_hypo[counter]
                         })
                         counter += 1
                 print(f'Finished calculating BERTScore, time passed {time.time() - start}s.')
@@ -160,6 +167,10 @@ class Scorer:
                 start = time.time()
                 blockPrint()
 
+                src_lines = self.get_src_lines()
+                src_lines = [line.lower() for line in src_lines]
+                write_list_to_file(src_lines, 'src.txt')
+
                 if not self.multi_ref:
                     ref_lines = [line.lower() for line in self.single_ref_lines]
                 else:
@@ -169,8 +180,17 @@ class Scorer:
                     sys_lines = self.get_sys_lines(sys_name)
                     sys_lines = [line.lower() for line in sys_lines]
 
-                    rouge1_scores, rouge2_scores, rougel_scores = [], [], []
+                    rouge1_hypo_ref_scores, rouge2_hypo_ref_scores, rougel_hypo_ref_scores = [], [], []
                     write_list_to_file(sys_lines, 'hypo.txt')
+
+                    args = argparse.Namespace(check_repeats=True, delete=True, get_each_score=True, stemming=True,
+                                              method='sent_no_tag', n_bootstrap=1000, run_google_rouge=False,
+                                              run_rouge=True, source='./hypo.txt', target='./src.txt',
+                                              ref_sep='||NEVER||', num_ref=1, temp_dir='./temp/')
+
+                    scores = baseline_main(args, return_pyrouge_scores=True)['individual_score_results']
+                    rouge1_src_hypo_scores, rouge2_src_hypo_scores, rougel_src_hypo_scores = rouge(scores)
+
                     if not self.multi_ref:
                         write_list_to_file(ref_lines, 'ref.txt')
                         args = argparse.Namespace(check_repeats=True, delete=True, get_each_score=True, stemming=True,
@@ -179,7 +199,7 @@ class Scorer:
                                                   ref_sep='||NEVER||', num_ref=1, temp_dir='./temp/')
 
                         scores = baseline_main(args, return_pyrouge_scores=True)['individual_score_results']
-                        rouge1_scores, rouge2_scores, rougel_scores = rouge(scores)
+                        rouge1_hypo_ref_scores, rouge2_hypo_ref_scores, rougel_hypo_ref_scores = rouge(scores)
                     else:
                         for i in range(self.ref_num):
                             ref_list = [x[i] for x in ref_lines]
@@ -192,29 +212,38 @@ class Scorer:
 
                             scores = baseline_main(args, return_pyrouge_scores=True)['individual_score_results']
                             r1, r2, rl = rouge(scores)
-                            rouge1_scores.append(r1)
-                            rouge2_scores.append(r2)
-                            rougel_scores.append(rl)
-                        rouge1_scores = np.mean(rouge1_scores, axis=0)
-                        rouge2_scores = np.mean(rouge2_scores, axis=0)
-                        rougel_scores = np.mean(rougel_scores, axis=0)
+                            rouge1_hypo_ref_scores.append(r1)
+                            rouge2_hypo_ref_scores.append(r2)
+                            rougel_hypo_ref_scores.append(rl)
+                        rouge1_hypo_ref_scores = np.mean(rouge1_hypo_ref_scores, axis=0)
+                        rouge2_hypo_ref_scores = np.mean(rouge2_hypo_ref_scores, axis=0)
+                        rougel_hypo_ref_scores = np.mean(rougel_hypo_ref_scores, axis=0)
 
                     counter = 0
                     for doc_id in self.data:
                         self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
-                            'rouge1_r': rouge1_scores[counter][0],
-                            'rouge1_p': rouge1_scores[counter][1],
-                            'rouge1_f': rouge1_scores[counter][2],
-                            'rouge2_r': rouge2_scores[counter][0],
-                            'rouge2_p': rouge2_scores[counter][1],
-                            'rouge2_f': rouge2_scores[counter][2],
-                            'rougel_r': rougel_scores[counter][0],
-                            'rougel_p': rougel_scores[counter][1],
-                            'rougel_f': rougel_scores[counter][2]
+                            'rouge1_r_hypo_ref': rouge1_hypo_ref_scores[counter][0],
+                            'rouge1_p_hypo_ref': rouge1_hypo_ref_scores[counter][1],
+                            'rouge1_f_hypo_ref': rouge1_hypo_ref_scores[counter][2],
+                            'rouge2_r_hypo_ref': rouge2_hypo_ref_scores[counter][0],
+                            'rouge2_p_hypo_ref': rouge2_hypo_ref_scores[counter][1],
+                            'rouge2_f_hypo_ref': rouge2_hypo_ref_scores[counter][2],
+                            'rougel_r_hypo_ref': rougel_hypo_ref_scores[counter][0],
+                            'rougel_p_hypo_ref': rougel_hypo_ref_scores[counter][1],
+                            'rougel_f_hypo_ref': rougel_hypo_ref_scores[counter][2],
+                            'rouge1_r_src_hypo': rouge1_src_hypo_scores[counter][0],
+                            'rouge1_p_src_hypo': rouge1_src_hypo_scores[counter][1],
+                            'rouge1_f_src_hypo': rouge1_src_hypo_scores[counter][2],
+                            'rouge2_r_src_hypo': rouge2_src_hypo_scores[counter][0],
+                            'rouge2_p_src_hypo': rouge2_src_hypo_scores[counter][1],
+                            'rouge2_f_src_hypo': rouge2_src_hypo_scores[counter][2],
+                            'rougel_r_src_hypo': rougel_src_hypo_scores[counter][0],
+                            'rougel_p_src_hypo': rougel_src_hypo_scores[counter][1],
+                            'rougel_f_src_hypo': rougel_src_hypo_scores[counter][2]
                         })
                         counter += 1
                 enablePrint()
-                os.system('rm -rf hypo.txt ref.txt')
+                os.system('rm -rf hypo.txt ref.txt src.txt')
                 print(f'Finished calculating ROUGE, time passed {time.time() - start}s.')
 
             elif metric_name == 'prism':
