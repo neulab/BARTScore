@@ -1,5 +1,4 @@
-# %%
-from utils import *
+from bart_score.utils import *
 from copy import deepcopy
 from tqdm import trange
 from tqdm import tqdm
