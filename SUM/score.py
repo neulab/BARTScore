@@ -228,22 +228,10 @@ class Scorer:
                             rouge1_hypo_ref_scores.append(r1)
                             rouge2_hypo_ref_scores.append(r2)
                             rougel_hypo_ref_scores.append(rl)
-                        rouge1_hypo_ref_scores = np.mean(rouge1_hypo_ref_scores, axis=0)
-                        rouge2_hypo_ref_scores = np.mean(rouge2_hypo_ref_scores, axis=0)
-                        rougel_hypo_ref_scores = np.mean(rougel_hypo_ref_scores, axis=0)
 
                     counter = 0
                     for doc_id in self.data:
                         self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
-                            'rouge1_r_hypo_ref': rouge1_hypo_ref_scores[counter][0],
-                            'rouge1_p_hypo_ref': rouge1_hypo_ref_scores[counter][1],
-                            'rouge1_f_hypo_ref': rouge1_hypo_ref_scores[counter][2],
-                            'rouge2_r_hypo_ref': rouge2_hypo_ref_scores[counter][0],
-                            'rouge2_p_hypo_ref': rouge2_hypo_ref_scores[counter][1],
-                            'rouge2_f_hypo_ref': rouge2_hypo_ref_scores[counter][2],
-                            'rougel_r_hypo_ref': rougel_hypo_ref_scores[counter][0],
-                            'rougel_p_hypo_ref': rougel_hypo_ref_scores[counter][1],
-                            'rougel_f_hypo_ref': rougel_hypo_ref_scores[counter][2],
                             'rouge1_r_src_hypo': rouge1_src_hypo_scores[counter][0],
                             'rouge1_p_src_hypo': rouge1_src_hypo_scores[counter][1],
                             'rouge1_f_src_hypo': rouge1_src_hypo_scores[counter][2],
@@ -254,6 +242,39 @@ class Scorer:
                             'rougel_p_src_hypo': rougel_src_hypo_scores[counter][1],
                             'rougel_f_src_hypo': rougel_src_hypo_scores[counter][2]
                         })
+                        if not self.multi_ref:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                'rouge1_r_hypo_ref': rouge1_hypo_ref_scores[counter][0],
+                                'rouge1_p_hypo_ref': rouge1_hypo_ref_scores[counter][1],
+                                'rouge1_f_hypo_ref': rouge1_hypo_ref_scores[counter][2],
+                                'rouge2_r_hypo_ref': rouge2_hypo_ref_scores[counter][0],
+                                'rouge2_p_hypo_ref': rouge2_hypo_ref_scores[counter][1],
+                                'rouge2_f_hypo_ref': rouge2_hypo_ref_scores[counter][2],
+                                'rougel_r_hypo_ref': rougel_hypo_ref_scores[counter][0],
+                                'rougel_p_hypo_ref': rougel_hypo_ref_scores[counter][1],
+                                'rougel_f_hypo_ref': rougel_hypo_ref_scores[counter][2],
+                            })
+                        else:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                'rouge1_r_hypo_ref_mean': np.mean(rouge1_hypo_ref_scores, axis=0)[counter][0],
+                                'rouge1_p_hypo_ref_mean': np.mean(rouge1_hypo_ref_scores, axis=0)[counter][1],
+                                'rouge1_f_hypo_ref_mean': np.mean(rouge1_hypo_ref_scores, axis=0)[counter][2],
+                                'rouge2_r_hypo_ref_mean': np.mean(rouge2_hypo_ref_scores, axis=0)[counter][0],
+                                'rouge2_p_hypo_ref_mean': np.mean(rouge2_hypo_ref_scores, axis=0)[counter][1],
+                                'rouge2_f_hypo_ref_mean': np.mean(rouge2_hypo_ref_scores, axis=0)[counter][2],
+                                'rougel_r_hypo_ref_mean': np.mean(rougel_hypo_ref_scores, axis=0)[counter][0],
+                                'rougel_p_hypo_ref_mean': np.mean(rougel_hypo_ref_scores, axis=0)[counter][1],
+                                'rougel_f_hypo_ref_mean': np.mean(rougel_hypo_ref_scores, axis=0)[counter][2],
+                                'rouge1_r_hypo_ref_max': np.max(rouge1_hypo_ref_scores, axis=0)[counter][0],
+                                'rouge1_p_hypo_ref_max': np.max(rouge1_hypo_ref_scores, axis=0)[counter][1],
+                                'rouge1_f_hypo_ref_max': np.max(rouge1_hypo_ref_scores, axis=0)[counter][2],
+                                'rouge2_r_hypo_ref_max': np.max(rouge2_hypo_ref_scores, axis=0)[counter][0],
+                                'rouge2_p_hypo_ref_max': np.max(rouge2_hypo_ref_scores, axis=0)[counter][1],
+                                'rouge2_f_hypo_ref_max': np.max(rouge2_hypo_ref_scores, axis=0)[counter][2],
+                                'rougel_r_hypo_ref_max': np.max(rougel_hypo_ref_scores, axis=0)[counter][0],
+                                'rougel_p_hypo_ref_max': np.max(rougel_hypo_ref_scores, axis=0)[counter][1],
+                                'rougel_f_hypo_ref_max': np.max(rougel_hypo_ref_scores, axis=0)[counter][2],
+                            })
                         counter += 1
                 enablePrint()
                 os.system('rm -rf hypo.txt ref.txt src.txt')
