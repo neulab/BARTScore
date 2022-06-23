@@ -3,6 +3,7 @@ import os
 import time
 import numpy as np
 from utils import *
+from tqdm import tqdm
 
 SRC_HYPO = read_file_to_list('files/src_hypo_prompt.txt')
 REF_HYPO = read_file_to_list('files/ref_hypo_prompt.txt')
@@ -74,38 +75,50 @@ class Scorer:
                     rescale_with_baseline=True,
                     device=self.device
                 )
-                print(f'BERTScore setup finished. Begin calculating BERTScore.')
+                print(f"BERTScore setup finished (hash='{bert_scorer.hash}'). Begin calculating BERTScore.")
 
                 start = time.time()
                 # Keep capitalization, detokenize everything
                 src_lines = self.get_src_lines()
                 src_lines = [detokenize(line) for line in src_lines]
                 ref_lines = self.single_ref_lines if not self.multi_ref else self.multi_ref_lines
-                for sys_name in self.sys_names:
+                for sys_name in tqdm(self.sys_names):
                     sys_lines = self.get_sys_lines(sys_name)
                     P_src_hypo, R_src_hypo, F_src_hypo = bert_scorer.score(sys_lines, src_lines)
                     if not self.multi_ref:
                         P_hypo_ref, R_hypo_ref, F_hypo_ref = bert_scorer.score(sys_lines, ref_lines)
                     else:
                         total_num = len(sys_lines)
-                        P_hypo_ref, R_hypo_ref, F_hypo_ref = np.zeros(total_num), np.zeros(total_num), np.zeros(total_num)
+                        P_hypo_ref, R_hypo_ref, F_hypo_ref = [], [], []
                         for i in range(self.ref_num):
                             ref_list = [x[i] for x in ref_lines]
                             curr_P, curr_R, curr_F = bert_scorer.score(sys_lines, ref_list)
-                            P_hypo_ref += curr_P.numpy()
-                            R_hypo_ref += curr_R.numpy()
-                            F_hypo_ref += curr_F.numpy()
-                        P_hypo_ref, R_hypo_ref, F_hypo_ref = P_hypo_ref / self.ref_num, R_hypo_ref / self.ref_num, F_hypo_ref / self.ref_num
+                            P_hypo_ref.append(curr_P.numpy())
+                            R_hypo_ref.append(curr_R.numpy())
+                            F_hypo_ref.append(curr_F.numpy())
                     counter = 0
                     for doc_id in self.data:
                         self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
-                            'bert_score_p_hypo_ref': P_hypo_ref[counter],
-                            'bert_score_r_hypo_ref': R_hypo_ref[counter],
-                            'bert_score_f_hypo_ref': F_hypo_ref[counter],
                             'bert_score_p_src_hypo': P_src_hypo[counter],
                             'bert_score_r_src_hypo': R_src_hypo[counter],
                             'bert_score_f_src_hypo': F_src_hypo[counter]
                         })
+                        if not self.multi_ref:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                'bert_score_p_hypo_ref': P_hypo_ref[counter],
+                                'bert_score_r_hypo_ref': R_hypo_ref[counter],
+                                'bert_score_f_hypo_ref': F_hypo_ref[counter],
+                            })
+                        else:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                'bert_score_p_hypo_ref_mean': np.mean(P_hypo_ref, axis=0)[counter],
+                                'bert_score_r_hypo_ref_mean': np.mean(R_hypo_ref, axis=0)[counter],
+                                'bert_score_f_hypo_ref_mean': np.mean(F_hypo_ref, axis=0)[counter],
+                                'bert_score_p_hypo_ref_max': np.max(P_hypo_ref, axis=0)[counter],
+                                'bert_score_r_hypo_ref_max': np.max(R_hypo_ref, axis=0)[counter],
+                                'bert_score_f_hypo_ref_max': np.max(F_hypo_ref, axis=0)[counter],
+                                
+                            })
                         counter += 1
                 print(f'Finished calculating BERTScore, time passed {time.time() - start}s.')
 
@@ -131,7 +144,7 @@ class Scorer:
                 else:
                     ref_lines = self.multi_ref_lines
                     idf_refs = get_idf_dict(sum(ref_lines, []))
-                for sys_name in self.sys_names:
+                for sys_name in tqdm(self.sys_names):
                     sys_lines = self.get_sys_lines(sys_name)
                     if not self.multi_ref:
                         scores = word_mover_score(ref_lines, sys_lines, idf_refs, self.idf_hyps, self.stop_words,
@@ -176,7 +189,7 @@ class Scorer:
                 else:
                     ref_lines = [[text.lower() for text in line] for line in self.multi_ref_lines]
 
-                for sys_name in self.sys_names:
+                for sys_name in tqdm(self.sys_names):
                     sys_lines = self.get_sys_lines(sys_name)
                     sys_lines = [line.lower() for line in sys_lines]
 
@@ -260,7 +273,7 @@ class Scorer:
                     ref_lines = [detokenize(line) for line in self.single_ref_lines]
                 else:
                     ref_lines = [[detokenize(text) for text in line] for line in self.multi_ref_lines]
-                for sys_name in self.sys_names:
+                for sys_name in tqdm(self.sys_names):
                     sys_lines = self.get_sys_lines(sys_name)
                     sys_lines = [detokenize(line) for line in sys_lines]
                     # Calculate Both src-based and ref-based
@@ -316,7 +329,7 @@ class Scorer:
                     ref_lines = [detokenize(line) for line in self.single_ref_lines]
                 else:
                     ref_lines = [[detokenize(text) for text in line] for line in self.multi_ref_lines]
-                for sys_name in self.sys_names:
+                for sys_name in tqdm(self.sys_names):
                     sys_lines = self.get_sys_lines(sys_name)
                     sys_lines = [detokenize(line) for line in sys_lines]
                     src_hypo = bart_scorer.score(src_lines, sys_lines, batch_size=4)
@@ -387,7 +400,7 @@ class Scorer:
                 # SRC -> HYPO prompt
                 if 'src' in metric_name:
                     for prompt in SRC_HYPO:
-                        for sys_name in self.sys_names:
+                        for sys_name in tqdm(self.sys_names):
                             sys_lines = self.get_sys_lines(sys_name)
                             sys_lines = [detokenize(line) for line in sys_lines]
                             src_hypo_en = bart_scorer.score(suffix_prompt(src_lines, prompt), sys_lines, batch_size=4)
@@ -403,7 +416,7 @@ class Scorer:
                 # REF <-> HYPO prompt
                 if 'ref' in metric_name:
                     for prompt in REF_HYPO:
-                        for sys_name in self.sys_names:
+                        for sys_name in tqdm(self.sys_names):
                             sys_lines = self.get_sys_lines(sys_name)
                             sys_lines = [detokenize(line) for line in sys_lines]
                             if not self.multi_ref:
