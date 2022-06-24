@@ -150,16 +150,22 @@ class Scorer:
                         scores = word_mover_score(ref_lines, sys_lines, idf_refs, self.idf_hyps, self.stop_words,
                                                   n_gram=1, remove_subwords=True, batch_size=48, device=self.device)
                     else:
-                        scores = np.zeros(len(sys_lines))
+                        scores = []
                         for i in range(self.ref_num):
                             ref_list = [x[i] for x in ref_lines]
                             curr_scores = word_mover_score(ref_list, sys_lines, idf_refs, self.idf_hyps,
                                                            self.stop_words, n_gram=1, remove_subwords=True,
                                                            batch_size=48, device=self.device)
-                            scores += np.array(curr_scores)
-                        scores = scores / self.ref_num
+                            scores.append(np.array(curr_scores))
                     counter = 0
                     for doc_id in self.data:
+                        if not self.multi_ref:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores']['mover_score'] = scores[counter]
+                        else:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                "mover_score_mean": np.mean(scores, axis=0)[counter],
+                                "mover_score_max": np.max(scores, axis=0)[counter],
+                            })
                         self.data[doc_id]['sys_summs'][sys_name]['scores']['mover_score'] = scores[counter]
                         counter += 1
                 print(f'Finished calculating MoverScore, time passed {time.time() - start}s.')
