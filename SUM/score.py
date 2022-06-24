@@ -140,7 +140,6 @@ class Scorer:
                 start = time.time()
                 # Keep capitalization, detokenize everything
                 src_lines = self.get_src_lines()
-                src_lines = [detokenize(line) for line in src_lines]
                 idf_srcs = get_idf_dict(src_lines)
                 if not self.multi_ref:
                     ref_lines = self.single_ref_lines
@@ -327,17 +326,15 @@ class Scorer:
                         ref_hypo_scores, hypo_ref_scores, scores = self.prism.score(cand=sys_lines, ref=ref_lines,
                                                                                     segment_scores=True)
                     else:
-                        total_num = len(sys_lines)
-                        ref_hypo_scores, hypo_ref_scores, scores = np.zeros(total_num), np.zeros(total_num), np.zeros(
-                            total_num)
+                        ref_hypo_scores, hypo_ref_scores, scores = [], [], []
                         for i in range(self.ref_num):
                             ref_list = [x[i] for x in ref_lines]
                             curr_ref_hypo_scores, curr_hypo_ref_scores, curr_scores = self.prism.score(cand=sys_lines,
                                                                                                        ref=ref_list,
                                                                                                        segment_scores=True)
-                            ref_hypo_scores += curr_ref_hypo_scores
-                            hypo_ref_scores += curr_hypo_ref_scores
-                            scores += curr_scores
+                            ref_hypo_scores.append(curr_ref_hypo_scores)
+                            hypo_ref_scores.append(curr_hypo_ref_scores)
+                            scores.append(curr_scores)
 
                         ref_hypo_scores = ref_hypo_scores / self.ref_num
                         hypo_ref_scores = hypo_ref_scores / self.ref_num
@@ -345,10 +342,18 @@ class Scorer:
 
                     counter = 0
                     for doc_id in self.data:
-                        self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_ref_hypo'] = ref_hypo_scores[counter]
-                        self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_hypo_ref'] = hypo_ref_scores[counter]
-                        self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_avg'] = scores[counter]
-                        self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_src_hypo'] = src_hypo_scores[counter]
+                        self.data[doc_id]['sys_summs'][sys_name]['scores']["prism_src_hypo"] = src_hypo_scores[counter]
+                        if not self.multi_ref:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_ref_hypo'] = ref_hypo_scores[counter]
+                            self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_hypo_ref'] = hypo_ref_scores[counter]
+                            self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_avg'] = scores[counter]
+                        else:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_ref_hypo_mean'] = np.mean(ref_hypo_scores, axis=0)[counter]
+                            self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_hypo_ref_mean'] = np.mean(hypo_ref_scores, axis=0)[counter]
+                            self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_avg_mean'] = np.mean(scores, axis=0)[counter]
+                            self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_ref_hypo_max'] = np.max(ref_hypo_scores, axis=0)[counter]
+                            self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_hypo_ref_max'] = np.max(hypo_ref_scores, axis=0)[counter]
+                            self.data[doc_id]['sys_summs'][sys_name]['scores']['prism_avg_max'] = np.max(scores, axis=0)[counter]
                         counter += 1
                 print(f'Finished calculating PRISM, time passed {time.time() - start}s.')
 
