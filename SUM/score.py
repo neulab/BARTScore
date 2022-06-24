@@ -3,6 +3,7 @@ import os
 import time
 import numpy as np
 from utils import *
+from tqdm import tqdm
 
 SRC_HYPO = read_file_to_list('files/src_hypo_prompt.txt')
 REF_HYPO = read_file_to_list('files/ref_hypo_prompt.txt')
@@ -74,38 +75,50 @@ class Scorer:
                     rescale_with_baseline=True,
                     device=self.device
                 )
-                print(f'BERTScore setup finished. Begin calculating BERTScore.')
+                print(f"BERTScore setup finished (hash='{bert_scorer.hash}'). Begin calculating BERTScore.")
 
                 start = time.time()
                 # Keep capitalization, detokenize everything
                 src_lines = self.get_src_lines()
                 src_lines = [detokenize(line) for line in src_lines]
                 ref_lines = self.single_ref_lines if not self.multi_ref else self.multi_ref_lines
-                for sys_name in self.sys_names:
+                for sys_name in tqdm(self.sys_names):
                     sys_lines = self.get_sys_lines(sys_name)
                     P_src_hypo, R_src_hypo, F_src_hypo = bert_scorer.score(sys_lines, src_lines)
                     if not self.multi_ref:
                         P_hypo_ref, R_hypo_ref, F_hypo_ref = bert_scorer.score(sys_lines, ref_lines)
                     else:
                         total_num = len(sys_lines)
-                        P_hypo_ref, R_hypo_ref, F_hypo_ref = np.zeros(total_num), np.zeros(total_num), np.zeros(total_num)
+                        P_hypo_ref, R_hypo_ref, F_hypo_ref = [], [], []
                         for i in range(self.ref_num):
                             ref_list = [x[i] for x in ref_lines]
                             curr_P, curr_R, curr_F = bert_scorer.score(sys_lines, ref_list)
-                            P_hypo_ref += curr_P.numpy()
-                            R_hypo_ref += curr_R.numpy()
-                            F_hypo_ref += curr_F.numpy()
-                        P_hypo_ref, R_hypo_ref, F_hypo_ref = P_hypo_ref / self.ref_num, R_hypo_ref / self.ref_num, F_hypo_ref / self.ref_num
+                            P_hypo_ref.append(curr_P.numpy())
+                            R_hypo_ref.append(curr_R.numpy())
+                            F_hypo_ref.append(curr_F.numpy())
                     counter = 0
                     for doc_id in self.data:
                         self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
-                            'bert_score_p_hypo_ref': P_hypo_ref[counter],
-                            'bert_score_r_hypo_ref': R_hypo_ref[counter],
-                            'bert_score_f_hypo_ref': F_hypo_ref[counter],
                             'bert_score_p_src_hypo': P_src_hypo[counter],
                             'bert_score_r_src_hypo': R_src_hypo[counter],
                             'bert_score_f_src_hypo': F_src_hypo[counter]
                         })
+                        if not self.multi_ref:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                'bert_score_p_hypo_ref': P_hypo_ref[counter],
+                                'bert_score_r_hypo_ref': R_hypo_ref[counter],
+                                'bert_score_f_hypo_ref': F_hypo_ref[counter],
+                            })
+                        else:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                'bert_score_p_hypo_ref_mean': np.mean(P_hypo_ref, axis=0)[counter],
+                                'bert_score_r_hypo_ref_mean': np.mean(R_hypo_ref, axis=0)[counter],
+                                'bert_score_f_hypo_ref_mean': np.mean(F_hypo_ref, axis=0)[counter],
+                                'bert_score_p_hypo_ref_max': np.max(P_hypo_ref, axis=0)[counter],
+                                'bert_score_r_hypo_ref_max': np.max(R_hypo_ref, axis=0)[counter],
+                                'bert_score_f_hypo_ref_max': np.max(F_hypo_ref, axis=0)[counter],
+                                
+                            })
                         counter += 1
                 print(f'Finished calculating BERTScore, time passed {time.time() - start}s.')
 
@@ -125,29 +138,45 @@ class Scorer:
                 print(f'MoverScore setup finished. Begin calculating MoverScore.')
 
                 start = time.time()
+                # Keep capitalization, detokenize everything
+                src_lines = self.get_src_lines()
+                src_lines = [detokenize(line) for line in src_lines]
+                idf_srcs = get_idf_dict(src_lines)
                 if not self.multi_ref:
                     ref_lines = self.single_ref_lines
                     idf_refs = get_idf_dict(ref_lines)
                 else:
                     ref_lines = self.multi_ref_lines
                     idf_refs = get_idf_dict(sum(ref_lines, []))
-                for sys_name in self.sys_names:
+                for sys_name in tqdm(self.sys_names):
                     sys_lines = self.get_sys_lines(sys_name)
+                    scores_src_hypo = word_mover_score(src_lines, sys_lines, idf_srcs, self.idf_hyps, self.stop_words,
+                                              n_gram=1, remove_subwords=True, batch_size=48, device=self.device)
                     if not self.multi_ref:
-                        scores = word_mover_score(ref_lines, sys_lines, idf_refs, self.idf_hyps, self.stop_words,
+                        scores_hypo_ref = word_mover_score(ref_lines, sys_lines, idf_refs, self.idf_hyps, self.stop_words,
                                                   n_gram=1, remove_subwords=True, batch_size=48, device=self.device)
                     else:
-                        scores = np.zeros(len(sys_lines))
+                        scores_hypo_ref = []
                         for i in range(self.ref_num):
                             ref_list = [x[i] for x in ref_lines]
                             curr_scores = word_mover_score(ref_list, sys_lines, idf_refs, self.idf_hyps,
                                                            self.stop_words, n_gram=1, remove_subwords=True,
                                                            batch_size=48, device=self.device)
-                            scores += np.array(curr_scores)
-                        scores = scores / self.ref_num
+                            scores_hypo_ref.append(np.array(curr_scores))
                     counter = 0
                     for doc_id in self.data:
-                        self.data[doc_id]['sys_summs'][sys_name]['scores']['mover_score'] = scores[counter]
+                        self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                            "mover_score_src_hypo": scores_src_hypo[counter]
+                        })
+                        if not self.multi_ref:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                "mover_score_hypo_ref": scores_hypo_ref[counter]
+                            })
+                        else:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                "mover_score_hypo_ref_mean": np.mean(scores_hypo_ref, axis=0)[counter],
+                                "mover_score_hypo_ref_max": np.max(scores_hypo_ref, axis=0)[counter],
+                            })
                         counter += 1
                 print(f'Finished calculating MoverScore, time passed {time.time() - start}s.')
 
@@ -176,7 +205,7 @@ class Scorer:
                 else:
                     ref_lines = [[text.lower() for text in line] for line in self.multi_ref_lines]
 
-                for sys_name in self.sys_names:
+                for sys_name in tqdm(self.sys_names):
                     sys_lines = self.get_sys_lines(sys_name)
                     sys_lines = [line.lower() for line in sys_lines]
 
@@ -215,22 +244,10 @@ class Scorer:
                             rouge1_hypo_ref_scores.append(r1)
                             rouge2_hypo_ref_scores.append(r2)
                             rougel_hypo_ref_scores.append(rl)
-                        rouge1_hypo_ref_scores = np.mean(rouge1_hypo_ref_scores, axis=0)
-                        rouge2_hypo_ref_scores = np.mean(rouge2_hypo_ref_scores, axis=0)
-                        rougel_hypo_ref_scores = np.mean(rougel_hypo_ref_scores, axis=0)
 
                     counter = 0
                     for doc_id in self.data:
                         self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
-                            'rouge1_r_hypo_ref': rouge1_hypo_ref_scores[counter][0],
-                            'rouge1_p_hypo_ref': rouge1_hypo_ref_scores[counter][1],
-                            'rouge1_f_hypo_ref': rouge1_hypo_ref_scores[counter][2],
-                            'rouge2_r_hypo_ref': rouge2_hypo_ref_scores[counter][0],
-                            'rouge2_p_hypo_ref': rouge2_hypo_ref_scores[counter][1],
-                            'rouge2_f_hypo_ref': rouge2_hypo_ref_scores[counter][2],
-                            'rougel_r_hypo_ref': rougel_hypo_ref_scores[counter][0],
-                            'rougel_p_hypo_ref': rougel_hypo_ref_scores[counter][1],
-                            'rougel_f_hypo_ref': rougel_hypo_ref_scores[counter][2],
                             'rouge1_r_src_hypo': rouge1_src_hypo_scores[counter][0],
                             'rouge1_p_src_hypo': rouge1_src_hypo_scores[counter][1],
                             'rouge1_f_src_hypo': rouge1_src_hypo_scores[counter][2],
@@ -241,6 +258,47 @@ class Scorer:
                             'rougel_p_src_hypo': rougel_src_hypo_scores[counter][1],
                             'rougel_f_src_hypo': rougel_src_hypo_scores[counter][2]
                         })
+                        if not self.multi_ref:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                'rouge1_r_hypo_ref': rouge1_hypo_ref_scores[counter][0],
+                                'rouge1_p_hypo_ref': rouge1_hypo_ref_scores[counter][1],
+                                'rouge1_f_hypo_ref': rouge1_hypo_ref_scores[counter][2],
+                                'rouge2_r_hypo_ref': rouge2_hypo_ref_scores[counter][0],
+                                'rouge2_p_hypo_ref': rouge2_hypo_ref_scores[counter][1],
+                                'rouge2_f_hypo_ref': rouge2_hypo_ref_scores[counter][2],
+                                'rougel_r_hypo_ref': rougel_hypo_ref_scores[counter][0],
+                                'rougel_p_hypo_ref': rougel_hypo_ref_scores[counter][1],
+                                'rougel_f_hypo_ref': rougel_hypo_ref_scores[counter][2],
+                            })
+                        else:
+                            rouge1_hypo_ref_scores_mean = np.mean(rouge1_hypo_ref_scores, axis=0)
+                            rouge2_hypo_ref_scores_mean = np.mean(rouge2_hypo_ref_scores, axis=0)
+                            rougel_hypo_ref_scores_mean = np.mean(rougel_hypo_ref_scores, axis=0)
+
+                            rouge1_hypo_ref_scores_max = np.max(rouge1_hypo_ref_scores, axis=0)
+                            rouge2_hypo_ref_scores_max = np.max(rouge2_hypo_ref_scores, axis=0)
+                            rougel_hypo_ref_scores_max = np.max(rougel_hypo_ref_scores, axis=0)
+                            
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                'rouge1_r_hypo_ref_mean': rouge1_hypo_ref_scores_mean[counter][0],
+                                'rouge1_p_hypo_ref_mean': rouge1_hypo_ref_scores_mean[counter][1],
+                                'rouge1_f_hypo_ref_mean': rouge1_hypo_ref_scores_mean[counter][2],
+                                'rouge2_r_hypo_ref_mean': rouge2_hypo_ref_scores_mean[counter][0],
+                                'rouge2_p_hypo_ref_mean': rouge2_hypo_ref_scores_mean[counter][1],
+                                'rouge2_f_hypo_ref_mean': rouge2_hypo_ref_scores_mean[counter][2],
+                                'rougel_r_hypo_ref_mean': rougel_hypo_ref_scores_mean[counter][0],
+                                'rougel_p_hypo_ref_mean': rougel_hypo_ref_scores_mean[counter][1],
+                                'rougel_f_hypo_ref_mean': rougel_hypo_ref_scores_mean[counter][2],
+                                'rouge1_r_hypo_ref_max': rouge1_hypo_ref_scores_max[counter][0],
+                                'rouge1_p_hypo_ref_max': rouge1_hypo_ref_scores_max[counter][1],
+                                'rouge1_f_hypo_ref_max': rouge1_hypo_ref_scores_max[counter][2],
+                                'rouge2_r_hypo_ref_max': rouge2_hypo_ref_scores_max[counter][0],
+                                'rouge2_p_hypo_ref_max': rouge2_hypo_ref_scores_max[counter][1],
+                                'rouge2_f_hypo_ref_max': rouge2_hypo_ref_scores_max[counter][2],
+                                'rougel_r_hypo_ref_max': rougel_hypo_ref_scores_max[counter][0],
+                                'rougel_p_hypo_ref_max': rougel_hypo_ref_scores_max[counter][1],
+                                'rougel_f_hypo_ref_max': rougel_hypo_ref_scores_max[counter][2],
+                            })
                         counter += 1
                 enablePrint()
                 os.system('rm -rf hypo.txt ref.txt src.txt')
@@ -260,7 +318,7 @@ class Scorer:
                     ref_lines = [detokenize(line) for line in self.single_ref_lines]
                 else:
                     ref_lines = [[detokenize(text) for text in line] for line in self.multi_ref_lines]
-                for sys_name in self.sys_names:
+                for sys_name in tqdm(self.sys_names):
                     sys_lines = self.get_sys_lines(sys_name)
                     sys_lines = [detokenize(line) for line in sys_lines]
                     # Calculate Both src-based and ref-based
@@ -316,7 +374,7 @@ class Scorer:
                     ref_lines = [detokenize(line) for line in self.single_ref_lines]
                 else:
                     ref_lines = [[detokenize(text) for text in line] for line in self.multi_ref_lines]
-                for sys_name in self.sys_names:
+                for sys_name in tqdm(self.sys_names):
                     sys_lines = self.get_sys_lines(sys_name)
                     sys_lines = [detokenize(line) for line in sys_lines]
                     src_hypo = bart_scorer.score(src_lines, sys_lines, batch_size=4)
@@ -324,26 +382,49 @@ class Scorer:
                         ref_hypo = np.array(bart_scorer.score(ref_lines, sys_lines, batch_size=4))
                         hypo_ref = np.array(bart_scorer.score(sys_lines, ref_lines, batch_size=4))
                     else:
-                        ref_hypo, hypo_ref = np.zeros(len(sys_lines)), np.zeros(len(sys_lines))
+                        ref_hypo, hypo_ref = [], []
                         for i in range(self.ref_num):
                             ref_list = [x[i] for x in ref_lines]
                             curr_ref_hypo = np.array(bart_scorer.score(ref_list, sys_lines, batch_size=4))
                             curr_hypo_ref = np.array(bart_scorer.score(sys_lines, ref_list, batch_size=4))
-                            ref_hypo += curr_ref_hypo
-                            hypo_ref += curr_hypo_ref
-                        ref_hypo = ref_hypo / self.ref_num
-                        hypo_ref = hypo_ref / self.ref_num
-                    avg_f = (ref_hypo + hypo_ref) / 2
-                    harm_f = (ref_hypo * hypo_ref) / (ref_hypo + hypo_ref)
+                            ref_hypo.append(curr_ref_hypo)
+                            hypo_ref.append(curr_hypo_ref)
+                    
+                    if not self.multi_ref:
+                        avg_f = (ref_hypo + hypo_ref) / 2
+                        harm_f = (ref_hypo * hypo_ref) / (ref_hypo + hypo_ref)
+                    else:
+                        ref_hypo_mean = np.mean(ref_hypo, axis=0)
+                        hypo_ref_mean = np.mean(hypo_ref, axis=0)
+                        ref_hypo_max = np.max(ref_hypo, axis=0)
+                        hypo_ref_max = np.max(hypo_ref, axis=0)
+                        avg_f_mean = (ref_hypo_mean + hypo_ref_mean) / 2
+                        harm_f_mean = (ref_hypo_mean * hypo_ref_mean) / (ref_hypo_mean + hypo_ref_mean)
+                        avg_f_max = (ref_hypo_max + hypo_ref_max) / 2
+                        harm_f_max = (ref_hypo_max * hypo_ref_max) / (ref_hypo_max + hypo_ref_max)
                     counter = 0
                     for doc_id in self.data:
                         self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
                             f'{metric_name}_src_hypo': src_hypo[counter],
-                            f'{metric_name}_hypo_ref': hypo_ref[counter],
-                            f'{metric_name}_ref_hypo': ref_hypo[counter],
-                            f'{metric_name}_avg_f': avg_f[counter],
-                            f'{metric_name}_harm_f': harm_f[counter]
                         })
+                        if not self.multi_ref:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                f'{metric_name}_hypo_ref': hypo_ref[counter],
+                                f'{metric_name}_ref_hypo': ref_hypo[counter],
+                                f'{metric_name}_avg_f': avg_f[counter],
+                                f'{metric_name}_harm_f': harm_f[counter]
+                            })
+                        else:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                f'{metric_name}_ref_hypo_mean': ref_hypo_mean[counter],
+                                f'{metric_name}_hypo_ref_mean': hypo_ref_mean[counter],
+                                f'{metric_name}_avg_f_mean': avg_f_mean[counter],
+                                f'{metric_name}_harm_f_mean': harm_f_mean[counter],
+                                f'{metric_name}_ref_hypo_max': ref_hypo_max[counter],
+                                f'{metric_name}_hypo_ref_max': hypo_ref_max[counter],
+                                f'{metric_name}_avg_f_max': avg_f_max[counter],
+                                f'{metric_name}_harm_f_max': harm_f_max[counter]
+                            })
                         counter += 1
                 print(f'Finished calculating BARTScore, time passed {time.time() - start}s.')
 
@@ -387,7 +468,7 @@ class Scorer:
                 # SRC -> HYPO prompt
                 if 'src' in metric_name:
                     for prompt in SRC_HYPO:
-                        for sys_name in self.sys_names:
+                        for sys_name in tqdm(self.sys_names):
                             sys_lines = self.get_sys_lines(sys_name)
                             sys_lines = [detokenize(line) for line in sys_lines]
                             src_hypo_en = bart_scorer.score(suffix_prompt(src_lines, prompt), sys_lines, batch_size=4)
@@ -403,7 +484,7 @@ class Scorer:
                 # REF <-> HYPO prompt
                 if 'ref' in metric_name:
                     for prompt in REF_HYPO:
-                        for sys_name in self.sys_names:
+                        for sys_name in tqdm(self.sys_names):
                             sys_lines = self.get_sys_lines(sys_name)
                             sys_lines = [detokenize(line) for line in sys_lines]
                             if not self.multi_ref:
