@@ -138,6 +138,10 @@ class Scorer:
                 print(f'MoverScore setup finished. Begin calculating MoverScore.')
 
                 start = time.time()
+                # Keep capitalization, detokenize everything
+                src_lines = self.get_src_lines()
+                src_lines = [detokenize(line) for line in src_lines]
+                idf_srcs = get_idf_dict(src_lines)
                 if not self.multi_ref:
                     ref_lines = self.single_ref_lines
                     idf_refs = get_idf_dict(ref_lines)
@@ -146,25 +150,32 @@ class Scorer:
                     idf_refs = get_idf_dict(sum(ref_lines, []))
                 for sys_name in tqdm(self.sys_names):
                     sys_lines = self.get_sys_lines(sys_name)
+                    scores_src_hypo = word_mover_score(src_lines, sys_lines, idf_srcs, self.idf_hyps, self.stop_words,
+                                              n_gram=1, remove_subwords=True, batch_size=48, device=self.device)
                     if not self.multi_ref:
-                        scores = word_mover_score(ref_lines, sys_lines, idf_refs, self.idf_hyps, self.stop_words,
+                        scores_hypo_ref = word_mover_score(ref_lines, sys_lines, idf_refs, self.idf_hyps, self.stop_words,
                                                   n_gram=1, remove_subwords=True, batch_size=48, device=self.device)
                     else:
-                        scores = []
+                        scores_hypo_ref = []
                         for i in range(self.ref_num):
                             ref_list = [x[i] for x in ref_lines]
                             curr_scores = word_mover_score(ref_list, sys_lines, idf_refs, self.idf_hyps,
                                                            self.stop_words, n_gram=1, remove_subwords=True,
                                                            batch_size=48, device=self.device)
-                            scores.append(np.array(curr_scores))
+                            scores_hypo_ref.append(np.array(curr_scores))
                     counter = 0
                     for doc_id in self.data:
+                        self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                            "mover_score_src_hypo": scores_src_hypo[counter]
+                        })
                         if not self.multi_ref:
-                            self.data[doc_id]['sys_summs'][sys_name]['scores']['mover_score'] = scores[counter]
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                "mover_score_hypo_ref": scores_hypo_ref[counter]
+                            })
                         else:
                             self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
-                                "mover_score_mean": np.mean(scores, axis=0)[counter],
-                                "mover_score_max": np.max(scores, axis=0)[counter],
+                                "mover_score_hypo_ref_mean": np.mean(scores_hypo_ref, axis=0)[counter],
+                                "mover_score_hypo_ref_max": np.max(scores_hypo_ref, axis=0)[counter],
                             })
                         counter += 1
                 print(f'Finished calculating MoverScore, time passed {time.time() - start}s.')
