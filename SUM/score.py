@@ -166,7 +166,6 @@ class Scorer:
                                 "mover_score_mean": np.mean(scores, axis=0)[counter],
                                 "mover_score_max": np.max(scores, axis=0)[counter],
                             })
-                        self.data[doc_id]['sys_summs'][sys_name]['scores']['mover_score'] = scores[counter]
                         counter += 1
                 print(f'Finished calculating MoverScore, time passed {time.time() - start}s.')
 
