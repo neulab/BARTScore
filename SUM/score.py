@@ -372,26 +372,49 @@ class Scorer:
                         ref_hypo = np.array(bart_scorer.score(ref_lines, sys_lines, batch_size=4))
                         hypo_ref = np.array(bart_scorer.score(sys_lines, ref_lines, batch_size=4))
                     else:
-                        ref_hypo, hypo_ref = np.zeros(len(sys_lines)), np.zeros(len(sys_lines))
+                        ref_hypo, hypo_ref = [], []
                         for i in range(self.ref_num):
                             ref_list = [x[i] for x in ref_lines]
                             curr_ref_hypo = np.array(bart_scorer.score(ref_list, sys_lines, batch_size=4))
                             curr_hypo_ref = np.array(bart_scorer.score(sys_lines, ref_list, batch_size=4))
-                            ref_hypo += curr_ref_hypo
-                            hypo_ref += curr_hypo_ref
-                        ref_hypo = ref_hypo / self.ref_num
-                        hypo_ref = hypo_ref / self.ref_num
-                    avg_f = (ref_hypo + hypo_ref) / 2
-                    harm_f = (ref_hypo * hypo_ref) / (ref_hypo + hypo_ref)
+                            ref_hypo.append(curr_ref_hypo)
+                            hypo_ref.append(curr_hypo_ref)
+                    
+                    if not self.multi_ref:
+                        avg_f = (ref_hypo + hypo_ref) / 2
+                        harm_f = (ref_hypo * hypo_ref) / (ref_hypo + hypo_ref)
+                    else:
+                        ref_hypo_mean = np.mean(ref_hypo, axis=0)
+                        hypo_ref_mean = np.mean(hypo_ref, axis=0)
+                        ref_hypo_max = np.max(ref_hypo, axis=0)
+                        hypo_ref_max = np.max(hypo_ref, axis=0)
+                        avg_f_mean = (ref_hypo_mean + hypo_ref_mean) / 2
+                        harm_f_mean = (ref_hypo_mean * hypo_ref_mean) / (ref_hypo_mean + hypo_ref_mean)
+                        avg_f_max = (ref_hypo_max + hypo_ref_max) / 2
+                        harm_f_max = (ref_hypo_max * hypo_ref_max) / (ref_hypo_max + hypo_ref_max)
                     counter = 0
                     for doc_id in self.data:
                         self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
                             f'{metric_name}_src_hypo': src_hypo[counter],
-                            f'{metric_name}_hypo_ref': hypo_ref[counter],
-                            f'{metric_name}_ref_hypo': ref_hypo[counter],
-                            f'{metric_name}_avg_f': avg_f[counter],
-                            f'{metric_name}_harm_f': harm_f[counter]
                         })
+                        if not self.multi_ref:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                f'{metric_name}_hypo_ref': hypo_ref[counter],
+                                f'{metric_name}_ref_hypo': ref_hypo[counter],
+                                f'{metric_name}_avg_f': avg_f[counter],
+                                f'{metric_name}_harm_f': harm_f[counter]
+                            })
+                        else:
+                            self.data[doc_id]['sys_summs'][sys_name]['scores'].update({
+                                f'{metric_name}_ref_hypo_mean': ref_hypo_mean[counter],
+                                f'{metric_name}_hypo_ref_mean': hypo_ref_mean[counter],
+                                f'{metric_name}_avg_f_mean': avg_f_mean[counter],
+                                f'{metric_name}_harm_f_mean': harm_f_mean[counter],
+                                f'{metric_name}_ref_hypo_max': ref_hypo_max[counter],
+                                f'{metric_name}_hypo_ref_max': hypo_ref_max[counter],
+                                f'{metric_name}_avg_f_max': avg_f_max[counter],
+                                f'{metric_name}_harm_f_max': harm_f_max[counter]
+                            })
                         counter += 1
                 print(f'Finished calculating BARTScore, time passed {time.time() - start}s.')
 
