@@ -2,6 +2,7 @@ from bart_score.utils import *
 from copy import deepcopy
 from tqdm import trange
 from tqdm import tqdm
+from typing import Optional, List
 
 
 class SUMStat:
@@ -20,38 +21,59 @@ class SUMStat:
             path = self.path
         save_pickle(self.data, path)
 
-    def evaluate_summary(self, human_metric, auto_metrics=None, table=None):
+    def evaluate_summary(
+        self,
+        human_metrics: Optional[List[str]] = None,
+        auto_metrics: Optional[List[str]] = None,
+        benchmark=None,
+        table=None
+    ):
         """ Evaluate summaries. Conduct summary-level correlations w.r.t each document """
-        assert human_metric in self.human_metrics
+        if human_metrics is None:
+            human_metrics = self.human_metrics
         if auto_metrics is None:
             auto_metrics = self.auto_metrics
-        print(f'Human metric: {human_metric}')
-        headers = ['metric', 'spearman', 'kendalltau']
-        metric_with_corr = []
-        for metric in auto_metrics:
-            correlations = []
-            for doc_id in self.data:
-                target_scores = []
-                prediction_scores = []
+        if benchmark is None:
+            benchmark = self.benchmark
 
-                sys_summs = self.data[doc_id]['sys_summs']
-                for sys_name in sys_summs:
-                    prediction_scores.append(sys_summs[sys_name]['scores'][metric])
-                    target_scores.append(sys_summs[sys_name]['scores'][human_metric])
-                if len(set(prediction_scores)) == 1 or len(set(target_scores)) == 1:
-                    continue
-                correlations.append([spearmanr(target_scores, prediction_scores)[0],
-                                     kendalltau(target_scores, prediction_scores)[0]])
-            corr_mat = np.array(correlations)
-            spearman, ktau = np.mean(corr_mat[:, 0]), np.mean(corr_mat[:, 1])
-            metric_with_corr.append([metric, spearman, ktau])
-        sorted_metric_with_corr = sorted(metric_with_corr, key=lambda x: x[1], reverse=True)
-        if table is not None:
-            file = open(table, 'w')
-            for each in sorted_metric_with_corr:
-                print(f'{each[0]}\t{each[1]}\t{each[2]}', file=file)
-            file.flush()
-        print(tabulate(sorted_metric_with_corr, headers=headers, tablefmt='simple'))
+        assert all(human_metric in self.human_metrics for human_metric in human_metrics)
+        assert all(auto_metric in self.auto_metrics for auto_metric in auto_metrics)
+
+        metric_with_corr = []
+        for human_metric in human_metrics:
+            print(f'Human metric: {human_metric}')
+            headers = ['auto metric', 'human metric', 'spearman', 'kendalltau']
+
+            for auto_metric in auto_metrics:
+                correlations = []
+                for doc_id in self.data:
+                    target_scores = []
+                    prediction_scores = []
+
+                    sys_summs = self.data[doc_id]['sys_summs']
+                    for sys_name in sys_summs:
+                        prediction_scores.append(sys_summs[sys_name]['scores'][auto_metric])
+                        target_scores.append(sys_summs[sys_name]['scores'][human_metric])
+                    if len(set(prediction_scores)) == 1 or len(set(target_scores)) == 1:
+                        continue
+                    correlations.append([spearmanr(target_scores, prediction_scores)[0],
+                                        kendalltau(target_scores, prediction_scores)[0]])
+                corr_mat = np.array(correlations)
+                spearman, ktau = np.mean(corr_mat[:, 0]), np.mean(corr_mat[:, 1])
+                metric_with_corr.append([auto_metric, human_metric, spearman, ktau])
+            if table is not None:
+                with open(table, "w") as f:
+                    f.write("auto_metric\thuman_metric\tbenchmark\tmulti_ref\tspearmanr\tkendalltau\n")
+                    for auto, human, sm, kt in metric_with_corr:
+                        if "_max" in auto:
+                            multi_ref = "max"
+                        elif "_mean" in auto:
+                            multi_ref = "mean"
+                        else:
+                            multi_ref = "none"
+
+                        f.write(f'{auto}\t{human}\t{benchmark}\t{multi_ref}\t{sm}\t{kt}\n')
+            print(tabulate(metric_with_corr[1:], headers=headers, tablefmt='simple'))
 
     def get_fact_pearson(self, auto_metrics=None):
         assert 'QAGS' in self.path
@@ -343,6 +365,24 @@ class SUMStat:
             return ['coherence', 'fluency', 'informativeness', 'relevance']
         if 'Rank19' in self.path or 'QAGS' in self.path:
             return ['fact']
+
+    @property
+    def benchmark(self):
+        """ All available benchmarks. """
+        if 'REALSumm' in self.path:
+            return 'REALSumm'
+        elif 'SummEval' in self.path:
+            return 'SummEval'
+        elif 'Newsroom' in self.path:
+            return 'Newsroom'
+        elif 'Rank19' in self.path:
+            return 'Rank19'
+        elif 'QAGS' in self.path:
+            return 'QAGS'
+        else:
+            raise ValueError(
+                "Unable to determine benchmark from path. Please provide it via the benchmark arg."
+            )
 
 
 class D2TStat:
