@@ -42,29 +42,52 @@ class SUMStat:
         metric_with_corr = []
         for human_metric in human_metrics:
             print(f'Human metric: {human_metric}')
-            headers = ['auto metric', 'human metric', 'spearman', 'kendalltau']
+            headers = ['auto metric', 'human metric', 'sys_spearmanr', 'sys_kendalltau', 'sum_spearmanr', 'sum_kendalltau']
 
             for auto_metric in auto_metrics:
-                correlations = []
+                # Wherever possible, we are using notation from section 2 in https://aclanthology.org/2021.tacl-1.67/
+                X = []
+                Z = []
                 for doc_id in self.data:
-                    target_scores = []
-                    prediction_scores = []
+                    X.append([])
+                    Z.append([])
 
+                    # All system generated summaries for this particular document
                     sys_summs = self.data[doc_id]['sys_summs']
+
                     for sys_name in sys_summs:
-                        prediction_scores.append(sys_summs[sys_name]['scores'][auto_metric])
-                        target_scores.append(sys_summs[sys_name]['scores'][human_metric])
-                    if len(set(prediction_scores)) == 1 or len(set(target_scores)) == 1:
+                        x_i_j = sys_summs[sys_name]['scores'][auto_metric]
+                        z_i_j = sys_summs[sys_name]['scores'][human_metric]
+                        X[-1].append(x_i_j)
+                        Z[-1].append(z_i_j)
+                    
+                    # TODO: Check is in original BARTScore code, but not clear why any system would have zero scores
+                    if len(set(X[-1])) == 1 or len(set(Z[-1])) == 1:
                         continue
-                    correlations.append([spearmanr(target_scores, prediction_scores)[0],
-                                        kendalltau(target_scores, prediction_scores)[0]])
-                corr_mat = np.array(correlations)
-                spearman, ktau = np.mean(corr_mat[:, 0]), np.mean(corr_mat[:, 1])
-                metric_with_corr.append([auto_metric, human_metric, spearman, ktau])
+    
+                # System-level correlations
+                X_sys, Z_sys = np.mean(X, axis=0), np.mean(Z, axis=0)
+                r_sys_spearmanr = spearmanr(X_sys, Z_sys).correlation
+                r_sys_kendalltau = kendalltau(X_sys, Z_sys).correlation
+
+                # Summary-level correlations
+                r_sum_spearmanr = np.mean([spearmanr(X[i, :], Z[i, :]).correlation for i in range(len(X))])
+                r_sum_kendalltau = np.mean([kendalltau(X[i, :], Z[i, :]).correlation for i in range(len(X))])
+
+                metric_with_corr.append(
+                    [
+                        auto_metric,
+                        human_metric,
+                        r_sys_spearmanr,
+                        r_sys_kendalltau,
+                        r_sum_spearmanr,
+                        r_sum_kendalltau
+                    ]
+                )
             if table is not None:
                 with open(table, "w") as f:
-                    f.write("auto_metric\thuman_metric\tbenchmark\tmulti_ref\tspearmanr\tkendalltau\n")
-                    for auto, human, sm, kt in metric_with_corr:
+                    f.write("auto_metric\thuman_metric\tbenchmark\tspearmanr\tkendalltau\tcorrelation_level\tmulti_ref_aggregation\n")
+                    for auto, human, sys_spr, sys_kt, sum_spr, sum_kt in metric_with_corr:
                         if "_max" in auto:
                             multi_ref = "max"
                         elif "_mean" in auto:
@@ -72,7 +95,8 @@ class SUMStat:
                         else:
                             multi_ref = "none"
 
-                        f.write(f'{auto}\t{human}\t{benchmark}\t{multi_ref}\t{sm}\t{kt}\n')
+                        f.write(f'{auto}\t{human}\t{benchmark}\t{sys_spr}\t{sys_kt}\tsystem\t{multi_ref}\n')
+                        f.write(f'{auto}\t{human}\t{benchmark}\t{sum_spr}\t{sum_kt}\tsummary\t{multi_ref}\n')
             print(tabulate(metric_with_corr[1:], headers=headers, tablefmt='simple'))
 
     def get_fact_pearson(self, auto_metrics=None):
