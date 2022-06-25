@@ -66,12 +66,12 @@ class SUMStat:
     
                 # System-level correlations
                 X_sys, Z_sys = np.mean(X, axis=0), np.mean(Z, axis=0)
-                r_sys_spearmanr = spearmanr(X_sys, Z_sys).correlation
-                r_sys_kendalltau = kendalltau(X_sys, Z_sys).correlation
+                r_sys_spearmanr = spearmanr(Z_sys, X_sys).correlation
+                r_sys_kendalltau = kendalltau(Z_sys, X_sys).correlation
 
                 # Summary-level correlations
-                r_sum_spearmanr = np.mean([spearmanr(X[i], Z[i]).correlation for i in range(len(X))])
-                r_sum_kendalltau = np.mean([kendalltau(X[i], Z[i]).correlation for i in range(len(X))])
+                r_sum_spearmanr = np.mean([spearmanr(Z[i], X[i]).correlation for i in range(len(X))])
+                r_sum_kendalltau = np.mean([kendalltau(Z[i], X[i]).correlation for i in range(len(X))])
 
                 metric_with_corr.append(
                     [
