@@ -60,7 +60,7 @@ class SUMStat:
                         X[-1].append(x_i_j)
                         Z[-1].append(z_i_j)
                     
-                    # TODO: Check is in original BARTScore code, but not clear why any system would have zero scores
+                    # TODO: From the original BARTScore code, not clear what it is checking
                     if len(set(X[-1])) == 1 or len(set(Z[-1])) == 1:
                         continue
     
