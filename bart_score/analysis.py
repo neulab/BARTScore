@@ -54,7 +54,6 @@ class SUMStat:
 
                     # All system generated summaries for this particular document
                     sys_summs = self.data[doc_id]['sys_summs']
-
                     for sys_name in sys_summs:
                         x_i_j = sys_summs[sys_name]['scores'][auto_metric]
                         z_i_j = sys_summs[sys_name]['scores'][human_metric]
