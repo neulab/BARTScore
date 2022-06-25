@@ -71,8 +71,8 @@ class SUMStat:
                 r_sys_kendalltau = kendalltau(X_sys, Z_sys).correlation
 
                 # Summary-level correlations
-                r_sum_spearmanr = np.mean([spearmanr(X[i, :], Z[i, :]).correlation for i in range(len(X))])
-                r_sum_kendalltau = np.mean([kendalltau(X[i, :], Z[i, :]).correlation for i in range(len(X))])
+                r_sum_spearmanr = np.mean([spearmanr(X[i], Z[i]).correlation for i in range(len(X))])
+                r_sum_kendalltau = np.mean([kendalltau(X[i], Z[i]).correlation for i in range(len(X))])
 
                 metric_with_corr.append(
                     [
@@ -97,7 +97,7 @@ class SUMStat:
 
                         f.write(f'{auto}\t{human}\t{benchmark}\t{sys_spr}\t{sys_kt}\tsystem\t{multi_ref}\n')
                         f.write(f'{auto}\t{human}\t{benchmark}\t{sum_spr}\t{sum_kt}\tsummary\t{multi_ref}\n')
-            print(tabulate(metric_with_corr[1:], headers=headers, tablefmt='simple'))
+            print(tabulate(metric_with_corr, headers=headers, tablefmt='simple'))
 
     def get_fact_pearson(self, auto_metrics=None):
         assert 'QAGS' in self.path
