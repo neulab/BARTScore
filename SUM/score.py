@@ -336,10 +336,6 @@ class Scorer:
                             hypo_ref_scores.append(curr_hypo_ref_scores)
                             scores.append(curr_scores)
 
-                        ref_hypo_scores = ref_hypo_scores / self.ref_num
-                        hypo_ref_scores = hypo_ref_scores / self.ref_num
-                        scores = scores / self.ref_num
-
                     counter = 0
                     for doc_id in self.data:
                         self.data[doc_id]['sys_summs'][sys_name]['scores']["prism_src_hypo"] = src_hypo_scores[counter]
